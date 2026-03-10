@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dev & Career Links</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: #080a0f;
+      color: #e2e8f0;
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #080a0f; }
+    ::-webkit-scrollbar-thumb { background: #1e2433; border-radius: 3px; }
+    input, textarea, select, button { font-family: inherit; }
+    a { color: inherit; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const STORAGE_KEY = "dcl-links-v1";
+
+    const CATEGORIES = ["All", "ML / Data", "Tools & Repos", "Career & LinkedIn", "Notes to Self"];
+
+    const CAT_META = {
+      "ML / Data":        { color: "#34d399", bg: "rgba(52,211,153,0.08)",  glow: "rgba(52,211,153,0.2)"  },
+      "Tools & Repos":    { color: "#60a5fa", bg: "rgba(96,165,250,0.08)",  glow: "rgba(96,165,250,0.2)"  },
+      "Career & LinkedIn":{ color: "#c084fc", bg: "rgba(192,132,252,0.08)", glow: "rgba(192,132,252,0.2)" },
+      "Notes to Self":    { color: "#fbbf24", bg: "rgba(251,191,36,0.08)",  glow: "rgba(251,191,36,0.2)"  },
+    };
+
+    const INITIAL_LINKS = [
+      { id:"1", title:"Airbnb: Speeding Up Search Ranking via Interleaving", url:"https://medium.com/airbnb-engineering/beyond-a-b-test-speeding-up-airbnb-search-ranking-experimentation-through-interleaving-7087afa09c8e", category:"ML / Data", note:"A/B testing alternative — interleaving for faster ranking experiments", date:"2026-03-10" },
+      { id:"2", title:"Google Colab Notebook", url:"https://colab.research.google.com/drive/1_CY_8DJRLm70gl9RjTz1vmPoLMwCeT0u?usp=sharing", category:"ML / Data", note:"", date:"2026-03-10" },
+      { id:"3", title:"100 NumPy Exercises (rougier/numpy-100)", url:"https://github.com/rougier/numpy-100", category:"Tools & Repos", note:"Practice repo for NumPy", date:"2026-03-10" },
+      { id:"4", title:"Pandas Exercises (guipsamora)", url:"https://github.com/guipsamora/pandas_exercises", category:"Tools & Repos", note:"Practice exercises for pandas", date:"2026-03-10" },
+      { id:"5", title:"LinkedIn: Most Useful Repo for Claude (stasbel)", url:"https://www.linkedin.com/posts/stasbel_just-found-the-most-useful-repo-for-claude-share-7434583487267053568-wgLc", category:"Career & LinkedIn", note:"", date:"2026-03-10" },
+      { id:"6", title:"LinkedIn: Anthropic 13 Free Courses", url:"https://www.linkedin.com/posts/chorouk-malmoum_breaking-anthropic-just-launched-13-free-share-7435822456327806976-Ll3v", category:"Career & LinkedIn", note:"13 free Anthropic courses", date:"2026-03-10" },
+      { id:"7", title:"LinkedIn: Reshare Post (kriti-jaiswal1)", url:"https://www.linkedin.com/posts/kriti-jaiswal1-_reshare-share-7435162024273272833-74sP", category:"Career & LinkedIn", note:"", date:"2026-03-10" },
+      { id:"8", title:"GoPractice: Data Analyst Guide", url:"https://gopractice.io/skills/data-analyst-guide/", category:"Career & LinkedIn", note:"Comprehensive DA guide from gopractice.io", date:"2026-03-10" },
+      { id:"9", title:"📝 Why groupby+lambda is slower than vectorized pandas", url:"", category:"Notes to Self", note:"X_dense.groupby('qid')['y'].apply(lambda x: (x>0).mean()) is slow because apply() with lambda breaks out of pandas' C-level vectorization — it calls Python for every group.\n\nBetter: X_dense['y'].gt(0).groupby(X_dense['qid']).mean()\n— fully vectorized, no Python overhead.\n\nRule: avoid lambda in groupby.apply() on DataFrames whenever possible.", date:"2026-03-10" },
+    ];
+
+    function loadLinks() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : INITIAL_LINKS;
+      } catch { return INITIAL_LINKS; }
+    }
+
+    function saveLinks(links) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(links)); } catch {}
+    }
+
+    function favicon(url) {
+      try { return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`; }
+      catch { return null; }
+    }
+
+    function Badge({ category }) {
+      const m = CAT_META[category] || { color: "#888", bg: "rgba(136,136,136,0.1)" };
+      return (
+        <span style={{
+          fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
+          color: m.color, background: m.bg,
+          border: `1px solid ${m.color}33`,
+          borderRadius: 5, padding: "2px 9px",
+          fontFamily: "'JetBrains Mono', monospace",
+          textTransform: "uppercase"
+        }}>{category}</span>
+      );
+    }
+
+    function Card({ link, onDelete, onEdit }) {
+      const [open, setOpen] = useState(false);
+      const fav = link.url ? favicon(link.url) : null;
+      const m = CAT_META[link.category] || {};
+
+      return (
+        <div style={{
+          background: "#0d1017",
+          border: "1px solid #161b27",
+          borderRadius: 14,
+          padding: "18px 20px",
+          display: "flex", flexDirection: "column", gap: 10,
+          transition: "border-color 0.2s, box-shadow 0.2s",
+          position: "relative",
+          overflow: "hidden"
+        }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = m.color ? m.color + "44" : "#333"; e.currentTarget.style.boxShadow = `0 0 20px ${m.glow || "transparent"}`; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "#161b27"; e.currentTarget.style.boxShadow = "none"; }}
+        >
+          {/* top accent line */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color ? `linear-gradient(90deg, ${m.color}88, transparent)` : "none" }} />
+
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            {fav && <img src={fav} width={16} height={16} style={{ marginTop: 3, borderRadius: 3, flexShrink: 0, opacity: 0.85 }} />}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {link.url ? (
+                <a href={link.url} target="_blank" rel="noopener noreferrer"
+                  style={{ color: "#f1f5f9", fontWeight: 700, fontSize: 14, lineHeight: 1.4, display: "block" }}
+                  onMouseEnter={e => e.currentTarget.style.color = m.color || "#fff"}
+                  onMouseLeave={e => e.currentTarget.style.color = "#f1f5f9"}
+                >
+                  {link.title}
+                </a>
+              ) : (
+                <span style={{ color: "#f1f5f9", fontWeight: 700, fontSize: 14, lineHeight: 1.4 }}>{link.title}</span>
+              )}
+              <div style={{ marginTop: 6 }}><Badge category={link.category} /></div>
+            </div>
+            <div style={{ display: "flex", gap: 4, flexShrink: 0, marginTop: 1 }}>
+              {link.note && (
+                <button onClick={() => setOpen(v => !v)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: open ? m.color || "#888" : "#444", fontSize: 13, padding: "2px 4px", transition: "color 0.15s" }}>
+                  {open ? "▲" : "▼"}
+                </button>
+              )}
+              <button onClick={() => onEdit(link)} style={{ background: "none", border: "none", cursor: "pointer", color: "#444", fontSize: 13, padding: "2px 4px" }}
+                onMouseEnter={e => e.currentTarget.style.color = "#60a5fa"}
+                onMouseLeave={e => e.currentTarget.style.color = "#444"}>✏️</button>
+              <button onClick={() => onDelete(link.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#444", fontSize: 13, padding: "2px 4px" }}
+                onMouseEnter={e => e.currentTarget.style.color = "#f87171"}
+                onMouseLeave={e => e.currentTarget.style.color = "#444"}>✕</button>
+            </div>
+          </div>
+
+          {!open && link.note && (
+            <div onClick={() => setOpen(true)} style={{ cursor: "pointer", color: "#3d4a5c", fontSize: 12, fontFamily: "'JetBrains Mono', monospace", paddingLeft: fav ? 26 : 0 }}>
+              ↳ {link.note.slice(0, 90)}{link.note.length > 90 ? "…" : ""}
+            </div>
+          )}
+
+          {open && link.note && (
+            <div style={{
+              background: "#080a0f", border: `1px solid ${m.color ? m.color + "22" : "#1e2433"}`,
+              borderRadius: 8, padding: "12px 14px",
+              color: "#94a3b8", fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
+              lineHeight: 1.75, whiteSpace: "pre-wrap"
+            }}>
+              {link.note}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function Modal({ initial, onSave, onClose }) {
+      const [form, setForm] = useState(initial || { title: "", url: "", category: "ML / Data", note: "" });
+      const cats = CATEGORIES.filter(c => c !== "All");
+      const inp = { background: "#0d1017", border: "1px solid #1e2433", borderRadius: 8, color: "#e2e8f0", padding: "10px 14px", fontSize: 14, outline: "none", width: "100%", transition: "border-color 0.15s" };
+
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, backdropFilter: "blur(4px)" }}
+          onClick={onClose}>
+          <div style={{ background: "#0d1017", border: "1px solid #1e2433", borderRadius: 18, padding: 28, width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", gap: 14 }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ color: "#f1f5f9", fontSize: 18, fontWeight: 800 }}>{form.id ? "Edit Entry" : "Add New Entry"}</h3>
+            <input placeholder="Title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={inp}
+              onFocus={e => e.target.style.borderColor = "#60a5fa"} onBlur={e => e.target.style.borderColor = "#1e2433"} />
+            <input placeholder="URL (leave empty for notes)" value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} style={inp}
+              onFocus={e => e.target.style.borderColor = "#60a5fa"} onBlur={e => e.target.style.borderColor = "#1e2433"} />
+            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+              style={{ ...inp, cursor: "pointer" }}>
+              {cats.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <textarea placeholder="Note (optional)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} rows={4}
+              style={{ ...inp, resize: "vertical", fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}
+              onFocus={e => e.target.style.borderColor = "#60a5fa"} onBlur={e => e.target.style.borderColor = "#1e2433"} />
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={onClose} style={{ background: "none", border: "1px solid #1e2433", borderRadius: 9, color: "#64748b", padding: "9px 20px", cursor: "pointer", fontWeight: 600 }}>Cancel</button>
+              <button onClick={() => form.title.trim() && onSave(form)}
+                style={{ background: "linear-gradient(135deg, #2563eb, #1d4ed8)", border: "none", borderRadius: 9, color: "#fff", padding: "9px 24px", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+                {form.id ? "Save Changes" : "Add Entry"}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [links, setLinks] = useState(loadLinks);
+      const [cat, setCat] = useState("All");
+      const [q, setQ] = useState("");
+      const [modal, setModal] = useState(null);
+      const [saved, setSaved] = useState(false);
+
+      const persist = (nl) => { saveLinks(nl); setSaved(true); setTimeout(() => setSaved(false), 1200); };
+
+      const addOrEdit = (form) => {
+        const nl = form.id
+          ? links.map(l => l.id === form.id ? form : l)
+          : [...links, { ...form, id: Date.now().toString(), date: new Date().toISOString().slice(0, 10) }];
+        setLinks(nl); persist(nl); setModal(null);
+      };
+
+      const del = (id) => { const nl = links.filter(l => l.id !== id); setLinks(nl); persist(nl); };
+
+      const filtered = links.filter(l =>
+        (cat === "All" || l.category === cat) &&
+        (!q || [l.title, l.note, l.url].join(" ").toLowerCase().includes(q.toLowerCase()))
+      );
+
+      const counts = {};
+      links.forEach(l => { counts[l.category] = (counts[l.category] || 0) + 1; });
+
+      return (
+        <div style={{ minHeight: "100vh" }}>
+          {modal && <Modal initial={modal === "new" ? null : modal} onSave={addOrEdit} onClose={() => setModal(null)} />}
+
+          {/* Header */}
+          <header style={{ borderBottom: "1px solid #111827", padding: "22px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", position: "sticky", top: 0, background: "#080a0f", zIndex: 50, backdropFilter: "blur(12px)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #2563eb, #7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🗂</div>
+              <div>
+                <h1 style={{ fontSize: 20, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.02em" }}>Dev & Career Links</h1>
+                <p style={{ fontSize: 12, color: saved ? "#34d399" : "#334155", fontFamily: "'JetBrains Mono', monospace", transition: "color 0.3s" }}>
+                  {saved ? "✓ saved" : `${links.length} entries`}
+                </p>
+              </div>
+            </div>
+            <button onClick={() => setModal("new")} style={{
+              background: "linear-gradient(135deg, #2563eb, #1d4ed8)", border: "none", borderRadius: 10,
+              color: "#fff", padding: "10px 22px", cursor: "pointer", fontWeight: 700, fontSize: 14,
+              fontFamily: "'Syne', sans-serif", boxShadow: "0 4px 14px rgba(37,99,235,0.4)",
+              display: "flex", alignItems: "center", gap: 7
+            }}>+ Add Link</button>
+          </header>
+
+          {/* Filters */}
+          <div style={{ padding: "18px 32px", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", borderBottom: "1px solid #0f1520" }}>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#334155", fontSize: 14 }}>⌕</span>
+              <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search…"
+                style={{ background: "#0d1017", border: "1px solid #1e2433", borderRadius: 8, color: "#e2e8f0", padding: "8px 14px 8px 32px", fontSize: 13, outline: "none", width: 220, fontFamily: "'JetBrains Mono', monospace" }}
+                onFocus={e => e.target.style.borderColor = "#2563eb"} onBlur={e => e.target.style.borderColor = "#1e2433"} />
+            </div>
+            {CATEGORIES.map(c => {
+              const active = cat === c;
+              const m = CAT_META[c];
+              return (
+                <button key={c} onClick={() => setCat(c)} style={{
+                  background: active ? (m ? m.bg : "rgba(37,99,235,0.12)") : "none",
+                  border: `1px solid ${active ? (m ? m.color + "55" : "#2563eb") : "#1e2433"}`,
+                  borderRadius: 8, color: active ? (m ? m.color : "#60a5fa") : "#475569",
+                  padding: "7px 15px", cursor: "pointer", fontWeight: active ? 700 : 500, fontSize: 13,
+                  fontFamily: "'Syne', sans-serif", transition: "all 0.15s"
+                }}>
+                  {c}{c !== "All" && counts[c] ? <span style={{ marginLeft: 5, opacity: 0.6, fontSize: 11 }}>{counts[c]}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Grid */}
+          <main style={{ padding: "24px 32px 60px", display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))" }}>
+            {filtered.length === 0 && (
+              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "60px 0", color: "#1e2d3d" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
+                <p style={{ fontSize: 15 }}>No entries found</p>
+              </div>
+            )}
+            {filtered.map(link => <Card key={link.id} link={link} onDelete={del} onEdit={l => setModal(l)} />)}
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
